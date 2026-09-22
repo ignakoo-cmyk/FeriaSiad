@@ -1,0 +1,21 @@
+# Dependencias locales (se instalan dentro del build)
+node_modules
+npm-debug.log
+package-lock.json
+
+# Archivos de sistema y control de versiones
+.DS_Store
+.git
+.gitignore
+.env
+.env.*
+
+# Documentación (no necesaria en imagen de producción)
+*.md
+README*
+
+# Archivos de desarrollo
+*.test.js
+*.spec.js
+coverage/
+.nyc_output/

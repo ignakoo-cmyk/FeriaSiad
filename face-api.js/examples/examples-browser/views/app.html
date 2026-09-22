@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FACE AI PLATFORM - Universidad Alberto Hurtado. Deteccion biometrica, prediccion vocacional y explorador de carreras.">
+  <title>FACE AI PLATFORM - Universidad Alberto Hurtado</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config={darkMode:'class',theme:{extend:{colors:{brand:{orange:'#E35205',light:'#FF6B1A'}},fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['Space Grotesk','monospace']},keyframes:{laserScan:{'0%,100%':{top:'0%'},'50%':{top:'96%'}}},animation:{'laser-scan':'laserScan 2.8s ease-in-out infinite'}}}}
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="face-api.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{background:#0e0e0e;background-image:radial-gradient(ellipse 70% 45% at 50% -5%,rgba(227,82,5,.14) 0%,transparent 65%);color:#fff;font-family:'Inter',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+    ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:#161616}::-webkit-scrollbar-thumb{background:#2e2e2e;border-radius:9999px}::-webkit-scrollbar-thumb:hover{background:#E35205}
+    .glass{background:rgba(22,22,22,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.07)}
+    .glass-orange{background:rgba(22,22,22,.87);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(227,82,5,.35);box-shadow:0 0 30px rgba(227,82,5,.12)}
+    .mirror{transform:scaleX(-1)}
+    .corner{position:absolute;width:26px;height:26px;border-color:#E35205;pointer-events:none;z-index:20;animation:cPulse 2.2s ease-in-out infinite}
+    @keyframes cPulse{0%,100%{opacity:.4}50%{opacity:1}}
+    .corner-tl{top:14px;left:14px;border-top-width:3px;border-left-width:3px;border-top-left-radius:5px}
+    .corner-tr{top:14px;right:14px;border-top-width:3px;border-right-width:3px;border-top-right-radius:5px}
+    .corner-bl{bottom:14px;left:14px;border-bottom-width:3px;border-left-width:3px;border-bottom-left-radius:5px}
+    .corner-br{bottom:14px;right:14px;border-bottom-width:3px;border-right-width:3px;border-bottom-right-radius:5px}
+    .laser{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(227,82,5,.3) 20%,#E35205 50%,rgba(227,82,5,.3) 80%,transparent);box-shadow:0 0 14px #E35205,0 0 6px #FF6B1A;pointer-events:none;z-index:15}
+    .tab-active{background:#E35205!important;color:#fff!important;box-shadow:0 0 20px rgba(227,82,5,.45)}
+    .tab-inactive{background:transparent;color:#71717a}
+    .tab-inactive:hover{color:#e4e4e7;background:rgba(255,255,255,.04)}
+    .bar-fill{transition:width .18s ease-out}
+    .career-card{transition:all .2s ease}
+    .career-card:hover{border-color:rgba(227,82,5,.5)!important;transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+    .top5-item{transition:all .18s ease}
+    .top5-item:hover{background:rgba(227,82,5,.08)!important;border-color:rgba(227,82,5,.35)!important}
+    .top5-item:active{transform:scale(.98)}
+    .rank-1{background:#E35205;color:#fff;box-shadow:0 0 10px rgba(227,82,5,.6)}
+    .rank-n{background:#1f1f1f;color:#a1a1aa;border:1px solid #2e2e2e}
+    ::selection{background:#E35205;color:#fff}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spin{animation:spin 1.2s linear infinite}
+    @keyframes reveal{0%{transform:scale(.92) translateY(8px);opacity:0}60%{transform:scale(1.02) translateY(-2px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
+    .animate-reveal{animation:reveal .55s cubic-bezier(.34,1.56,.64,1) forwards}
+  </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+<!-- HEADER -->
+<header class="sticky top-0 z-50 glass border-b border-white/[0.07] px-4 lg:px-8 py-3">
+  <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+    <a href="/app" class="flex items-center gap-3 shrink-0">
+      <img src="/logo_uah.svg" alt="UAH" class="h-9 w-auto opacity-95">
+      <div class="hidden sm:flex flex-col">
+        <span class="font-mono font-bold tracking-widest text-sm text-white uppercase">FACE AI PLATFORM</span>
+        <span class="text-[10px] text-zinc-500 font-light">Feria Vocacional - Universidad Alberto Hurtado</span>
+      </div>
+    </a>
+    <nav class="flex-1 flex justify-center" role="tablist">
+      <div class="flex items-center bg-zinc-950/90 p-1 rounded-2xl border border-white/[0.07] gap-1 shadow-inner">
+        <button id="tab-emotions" role="tab" aria-selected="true" class="tab-active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all">
+          <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Emociones y Edades</span><span class="sm:hidden font-mono">1</span>
+        </button>
+        <button id="tab-prediction" role="tab" aria-selected="false" class="tab-inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Prediccion UAH</span><span class="sm:hidden font-mono">2</span>
+        </button>
+        <button id="tab-catalog" role="tab" aria-selected="false" class="tab-inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all">
+          <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Explorador de Carreras</span><span class="sm:hidden font-mono">3</span>
+        </button>
+      </div>
+    </nav>
+    <div class="hidden md:flex items-center gap-2 shrink-0">
+      <div id="aiBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30">
+        <span class="relative flex h-2 w-2">
+          <span id="aiPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+          <span id="aiDot" class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+        </span>
+        <span id="aiText" class="text-[11px] font-mono font-medium text-amber-400 tracking-wide whitespace-nowrap">Cargando IA</span>
+      </div>
+      <button id="btnFullscreen" class="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition" title="Pantalla completa">
+        <i data-lucide="maximize" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+</header>
+
+
+<!-- ===== TAB 1: EMOCIONES Y EDADES ===== -->
+<main id="view-emotions" role="tabpanel" class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+  <section class="lg:col-span-7 flex flex-col gap-3">
+    <div class="flex items-center justify-between px-1">
+      <div>
+        <h1 class="text-base font-bold text-white tracking-tight">Deteccion Biometrica en Tiempo Real</h1>
+        <p class="text-[11px] text-zinc-500 font-mono">Edad estimada - Micro-expresiones - Genero</p>
+      </div>
+      <button id="btnResetE" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 hover:border-orange-500/40 text-xs font-medium text-zinc-400 hover:text-white transition-all active:scale-95">
+        <i data-lucide="rotate-ccw" class="w-3 h-3 text-orange-500"></i> Siguiente estudiante
+      </button>
+    </div>
+    <div id="camCardE" class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden glass border border-white/[0.07] shadow-2xl bg-zinc-950 flex items-center justify-center">
+      <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+      <div id="laserE" class="laser animate-laser-scan hidden"></div>
+      <video id="videoE" autoplay muted playsinline class="mirror absolute inset-0 w-full h-full object-cover hidden z-10"></video>
+      <canvas id="canvasE" class="mirror absolute inset-0 w-full h-full object-cover pointer-events-none z-20"></canvas>
+      <div id="hudE" class="absolute top-3 left-4 right-4 z-30 flex items-center justify-between pointer-events-none opacity-0 transition-opacity duration-500">
+        <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-[11px] font-mono text-zinc-300">
+          <span class="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping inline-block"></span>
+          STAND COLEGIOS - BIOMETRIA EN VIVO
+        </div>
+        <div class="px-2 py-1 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-[11px] font-mono text-zinc-400">FPS <span id="fpsE" class="text-orange-500 font-bold">--</span></div>
+      </div>
+      <div id="statusBadgeE" class="absolute bottom-4 z-30 pointer-events-none opacity-0 transition-opacity duration-300">
+        <div id="statusBadgeEInner" class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-white/10 text-[11px] font-mono text-zinc-300">
+          <i data-lucide="scan" class="w-3.5 h-3.5 text-orange-500"></i><span>Buscando rostro</span>
+        </div>
+      </div>
+      <div id="inactiveE" class="relative z-30 flex flex-col items-center justify-center p-6 text-center">
+        <div class="w-20 h-20 mb-5 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center shadow-xl relative">
+          <div class="absolute inset-0 bg-orange-500/15 rounded-2xl blur-xl"></div>
+          <i data-lucide="camera" class="w-10 h-10 text-orange-500 relative z-10 stroke-[1.5]"></i>
+        </div>
+        <h2 class="text-xl font-bold text-white mb-2 tracking-tight">Deteccion de Emociones y Edades</h2>
+        <p class="text-sm text-zinc-400 leading-relaxed mb-6 max-w-xs">Analiza en tiempo real las <strong class="text-zinc-200">micro-expresiones faciales</strong> y la <strong class="text-orange-500">edad estimada</strong> de los estudiantes.</p>
+        <button id="btnStartCamE" class="flex items-center gap-3 px-8 py-3.5 rounded-full bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm tracking-wide transition-all active:scale-95 shadow-[0_0_30px_rgba(227,82,5,0.5)]">
+          <i data-lucide="play" class="w-4 h-4 fill-white stroke-none"></i> Iniciar Escaner
+        </button>
+        <div id="loadingE" class="hidden mt-4 flex items-center gap-2 text-xs font-mono text-zinc-500">
+          <i data-lucide="loader-2" class="w-3.5 h-3.5 spin text-orange-500"></i> Activando camara
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="lg:col-span-5 flex flex-col gap-4">
+    <div class="glass rounded-2xl p-5 border border-white/[0.07] shadow-xl">
+      <div class="flex items-center gap-2 mb-4 pb-3 border-b border-white/[0.07]">
+        <div class="p-1.5 rounded-lg bg-orange-500/15 text-orange-500 border border-orange-500/25"><i data-lucide="user-check" class="w-4 h-4"></i></div>
+        <div><h3 class="text-xs font-bold text-white uppercase tracking-wide font-mono">Perfil Biometrico</h3><p class="text-[10px] text-zinc-500">Estudiante secundario en vivo</p></div>
+        <div id="emotionBadgeE" class="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-800/60 border border-white/10 text-[11px] font-mono text-zinc-400">
+          <span id="emotionDotE" class="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+          <span id="emotionTextE">En espera</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="bg-zinc-900/80 rounded-xl p-3 border border-white/[0.06] flex items-center justify-between">
+          <div><p class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Edad Estimada</p><p class="text-[9px] text-zinc-600 font-mono">Secundaria</p></div>
+          <div class="flex items-baseline gap-1"><span id="ageValE" class="text-3xl font-mono font-black text-white">--</span><span class="text-[10px] text-zinc-500 font-mono">anos</span></div>
+        </div>
+        <div class="bg-zinc-900/80 rounded-xl p-3 border border-white/[0.06] flex items-center justify-between">
+          <div><p class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Genero</p><span id="genderConfE" class="text-[9px] text-zinc-600 font-mono">Certeza --%</span></div>
+          <span id="genderValE" class="text-sm font-bold text-white">--</span>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Micro-Expresiones Faciales</p>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2.5">
+          <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-zinc-300">Feliz</span><span id="pE-happy" class="font-mono text-zinc-500 text-[10px]">0%</span></div><div class="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden"><div id="bE-happy" class="bar-fill h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-300" style="width:0%"></div></div></div>
+          <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-zinc-300">Sorprendido</span><span id="pE-surprised" class="font-mono text-zinc-500 text-[10px]">0%</span></div><div class="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden"><div id="bE-surprised" class="bar-fill h-full rounded-full bg-gradient-to-r from-orange-400 to-amber-300" style="width:0%"></div></div></div>
+          <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-zinc-300">Neutral</span><span id="pE-neutral" class="font-mono text-zinc-500 text-[10px]">0%</span></div><div class="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden"><div id="bE-neutral" class="bar-fill h-full rounded-full bg-gradient-to-r from-zinc-400 to-zinc-300" style="width:0%"></div></div></div>
+          <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-zinc-300">Triste</span><span id="pE-sad" class="font-mono text-zinc-500 text-[10px]">0%</span></div><div class="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden"><div id="bE-sad" class="bar-fill h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" style="width:0%"></div></div></div>
+          <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-zinc-300">Enojado</span><span id="pE-angry" class="font-mono text-zinc-500 text-[10px]">0%</span></div><div class="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden"><div id="bE-angry" class="bar-fill h-full rounded-full bg-gradient-to-r from-red-600 to-rose-400" style="width:0%"></div></div></div>
+          <div><div class="flex justify-between text-[11px] mb-0.5"><span class="text-zinc-300">Temeroso</span><span id="pE-fearful" class="font-mono text-zinc-500 text-[10px]">0%</span></div><div class="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden"><div id="bE-fearful" class="bar-fill h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-400" style="width:0%"></div></div></div>
+          <div class="col-span-2"><div class="flex justify-between text-[11px] mb-0.5"><span class="text-zinc-300">Disgustado</span><span id="pE-disgusted" class="font-mono text-zinc-500 text-[10px]">0%</span></div><div class="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden"><div id="bE-disgusted" class="bar-fill h-full rounded-full bg-gradient-to-r from-green-600 to-emerald-400" style="width:0%"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="glass rounded-2xl p-4 border border-white/[0.07]">
+      <div class="flex items-start gap-3">
+        <div class="p-2 rounded-xl bg-zinc-900 border border-white/10 shrink-0 mt-0.5"><i data-lucide="shield-check" class="w-4 h-4 text-zinc-400"></i></div>
+        <div><p class="text-xs font-semibold text-zinc-200 mb-1">Privacidad garantizada</p><p class="text-[11px] text-zinc-500 leading-relaxed">El procesamiento ocurre completamente en el navegador. <strong class="text-zinc-400">No se almacenan imagenes ni datos personales.</strong></p></div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+
+<!-- ===== TAB 2: PREDICCION VOCACIONAL ===== -->
+<main id="view-prediction" role="tabpanel" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+  <section class="lg:col-span-7 flex flex-col gap-3">
+    <div class="flex items-center justify-between px-1">
+      <div>
+        <h1 class="text-base font-bold text-white tracking-tight">Prediccion Vocacional con IA</h1>
+        <p class="text-[11px] text-zinc-500 font-mono">Ubicate frente a la camara para iniciar el analisis de 5 segundos</p>
+      </div>
+      <button id="btnResetP" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 hover:border-orange-500/40 text-xs font-medium text-zinc-400 hover:text-white transition-all active:scale-95">
+        <i data-lucide="rotate-ccw" class="w-3 h-3 text-orange-500"></i> Nuevo analisis
+      </button>
+    </div>
+    <div class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden glass border border-white/[0.07] shadow-2xl bg-zinc-950 flex items-center justify-center">
+      <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+      <div id="laserP" class="laser animate-laser-scan hidden"></div>
+      <video id="videoP" autoplay muted playsinline class="mirror absolute inset-0 w-full h-full object-cover hidden z-10"></video>
+      <canvas id="canvasP" class="mirror absolute inset-0 w-full h-full object-cover pointer-events-none z-20"></canvas>
+      <div id="hudP" class="absolute top-3 left-4 right-4 z-30 flex items-center justify-between pointer-events-none opacity-0 transition-opacity duration-500">
+        <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-[11px] font-mono text-zinc-300">
+          <span class="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping inline-block"></span>
+          ANALISIS VOCACIONAL ACTIVO
+        </div>
+        <div class="px-2 py-1 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-[11px] font-mono text-zinc-400">FPS <span id="fpsP" class="text-orange-500 font-bold">--</span></div>
+      </div>
+      <div id="statusBadgeP" class="absolute bottom-4 z-30 pointer-events-none opacity-0 transition-opacity duration-300">
+        <div id="statusBadgePInner" class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-white/10 text-[11px] font-mono text-zinc-300">
+          <i data-lucide="scan" class="w-3.5 h-3.5 text-orange-500"></i><span>Buscando rostro</span>
+        </div>
+      </div>
+      <div id="inactiveP" class="relative z-30 flex flex-col items-center justify-center p-6 text-center">
+        <div class="w-20 h-20 mb-5 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center shadow-xl relative">
+          <div class="absolute inset-0 bg-orange-500/15 rounded-2xl blur-xl"></div>
+          <i data-lucide="sparkles" class="w-9 h-9 text-orange-500 relative z-10 stroke-[1.5]"></i>
+        </div>
+        <h2 class="text-xl font-bold text-white mb-2 tracking-tight">Prediccion Vocacional UAH</h2>
+        <p class="text-sm text-zinc-400 leading-relaxed mb-6 max-w-xs">La IA analizara tus <strong class="text-zinc-200">micro-expresiones durante 5 segundos</strong> y calculara tu afinidad con las <strong class="text-orange-500">35 carreras de la UAH</strong>.</p>
+        <button id="btnStartCamP" class="flex items-center gap-3 px-8 py-3.5 rounded-full bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm tracking-wide transition-all active:scale-95 shadow-[0_0_30px_rgba(227,82,5,0.5)]">
+          <i data-lucide="play" class="w-4 h-4 fill-white stroke-none"></i> Iniciar Prediccion
+        </button>
+        <div id="loadingP" class="hidden mt-4 flex items-center gap-2 text-xs font-mono text-zinc-500">
+          <i data-lucide="loader-2" class="w-3.5 h-3.5 spin text-orange-500"></i> Activando camara
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="lg:col-span-5 flex flex-col gap-4">
+    <div class="glass-orange rounded-2xl p-5 flex flex-col gap-4 relative overflow-hidden">
+      <div class="absolute -right-10 -top-10 w-36 h-36 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="flex items-center justify-between border-b border-white/[0.07] pb-3 relative z-10">
+        <div class="flex items-center gap-2">
+          <div class="p-1.5 rounded-lg bg-orange-600 text-white shadow-[0_0_12px_rgba(227,82,5,0.5)]"><i data-lucide="sparkles" class="w-4 h-4"></i></div>
+          <div><h3 class="text-xs font-bold text-white uppercase tracking-wide font-mono">Tu Perfil Vocacional</h3><p class="text-[10px] text-orange-400 font-medium">35 carreras UAH analizadas</p></div>
+        </div>
+        <span id="predTag" class="px-2.5 py-0.5 rounded-full bg-zinc-800 border border-white/10 text-[10px] font-mono text-zinc-400 uppercase tracking-wide">En espera</span>
+      </div>
+
+      <div id="predLocked" class="flex flex-col items-center text-center py-5 gap-3 relative z-10">
+        <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center"><i data-lucide="scan-face" class="w-7 h-7 text-zinc-500"></i></div>
+        <div>
+          <h4 class="text-sm font-bold text-zinc-200 mb-1">Ubicate frente a la camara</h4>
+          <p class="text-xs text-zinc-500 max-w-xs leading-relaxed">Cuando la IA detecte tu rostro, comenzaran automaticamente 5 segundos de analisis para revelar tu carrera ideal.</p>
+        </div>
+      </div>
+
+      <div id="predScanning" class="hidden flex flex-col gap-3 py-2 relative z-10">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="cpu" class="w-4 h-4 text-orange-500 spin"></i>
+            <span id="scanPhase" class="text-xs font-mono font-medium text-white">Analizando micro-expresiones</span>
+          </div>
+          <span id="scanCd" class="text-sm font-mono font-black text-orange-500">5s</span>
+        </div>
+        <div class="h-2.5 w-full bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-orange-500/25">
+          <div id="scanBar" class="h-full rounded-full bg-gradient-to-r from-orange-600 via-orange-400 to-amber-400 shadow-[0_0_10px_#E35205] transition-all duration-100" style="width:0%"></div>
+        </div>
+        <div class="flex justify-between text-[11px] font-mono text-zinc-500">
+          <span>Cruzando afinidad con 35 carreras UAH</span>
+          <span id="scanPct">0%</span>
+        </div>
+      </div>
+
+      <div id="predRevealed" class="hidden flex flex-col gap-2.5 relative z-10">
+        <div class="flex items-center justify-between mb-1">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-600 text-white text-[11px] font-mono font-bold uppercase tracking-wide shadow-[0_0_14px_rgba(227,82,5,0.6)]">
+            <i data-lucide="award" class="w-3 h-3"></i> Tu Carrera Ideal UAH
+          </span>
+        </div>
+        <p class="text-[11px] text-zinc-400 font-mono flex items-center gap-1.5">
+          <i data-lucide="mouse-pointer-click" class="w-3 h-3 text-orange-500"></i>
+          Toca una carrera para ver su descripcion completa
+        </p>
+        <div id="top5List" class="flex flex-col gap-1.5"></div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-zinc-600 pt-2 border-t border-white/[0.06]">
+          <span>Siguiente analisis en: <strong id="resetCd" class="text-zinc-400">12s</strong></span>
+          <span class="text-orange-500">Universidad Alberto Hurtado</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass rounded-2xl p-4 border border-white/[0.07]">
+      <div class="flex items-start gap-3">
+        <div class="p-2 rounded-xl bg-zinc-900 border border-white/10 shrink-0"><i data-lucide="lightbulb" class="w-4 h-4 text-amber-400"></i></div>
+        <div>
+          <p class="text-xs font-semibold text-zinc-200 mb-1">Consejos para mejores resultados</p>
+          <ul class="text-[11px] text-zinc-500 leading-relaxed space-y-0.5">
+            <li>- Mantener el rostro centrado y bien iluminado</li>
+            <li>- El analisis dura <strong class="text-zinc-400">5 segundos</strong> automaticamente</li>
+            <li>- Tocar cualquier carrera del Top 5 para ver detalles completos</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+
+<!-- ===== TAB 3: EXPLORADOR DE CARRERAS ===== -->
+<section id="view-catalog" role="tabpanel" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 flex flex-col gap-5">
+  <div class="glass rounded-3xl p-6 sm:p-8 border border-white/[0.07] shadow-2xl relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-orange-500/8 via-transparent to-transparent pointer-events-none"></div>
+    <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+      <div class="flex flex-col gap-2 max-w-2xl">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-500 font-mono text-xs w-fit">
+          <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>
+          <span>Oferta Academica de Pregrado - UAH</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Explorador de Carreras Universitarias</h1>
+        <p class="text-sm text-zinc-400 leading-relaxed">Herramienta para el <strong class="text-zinc-200">equipo del stand</strong>. Busca, filtra y explica a los estudiantes cada carrera de la <strong class="text-zinc-200">Universidad Alberto Hurtado</strong>. Haz clic en cualquier carrera para ver su descripcion completa.</p>
+      </div>
+      <div class="flex flex-col items-center gap-2 shrink-0 w-full md:w-auto">
+        <button id="btnRandom" class="w-full md:w-auto flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-orange-600 to-orange-400 text-white font-bold text-sm tracking-wide shadow-[0_0_25px_rgba(227,82,5,0.4)] hover:brightness-110 active:scale-95 transition-all">
+          <i data-lucide="shuffle" class="w-5 h-5"></i> Carrera Aleatoria
+        </button>
+        <span class="text-[11px] text-zinc-600 font-mono text-center">Sorprende a los estudiantes</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="randomCard" class="hidden glass-orange rounded-2xl p-5">
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center shrink-0 shadow-lg shadow-orange-500/30"><i data-lucide="shuffle" class="w-6 h-6 text-white"></i></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1 flex-wrap">
+          <span class="px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/40 text-[10px] font-mono text-orange-400 font-bold uppercase">Al Azar</span>
+          <span id="randomFac" class="text-[11px] text-zinc-400 font-mono"></span>
+        </div>
+        <h3 id="randomName" class="text-lg font-bold text-white tracking-tight"></h3>
+        <p id="randomDesc" class="text-xs text-zinc-400 mt-1 leading-relaxed line-clamp-2"></p>
+      </div>
+      <button id="btnRandomAgain" class="shrink-0 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-300 border border-white/10 transition active:scale-95">Otra vez</button>
+    </div>
+  </div>
+
+  <div class="flex flex-col gap-3">
+    <div class="relative">
+      <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"></i>
+      <input id="searchInput" type="text" placeholder="Busca por nombre de carrera, facultad o area..."
+        class="w-full bg-zinc-900/90 border border-white/10 rounded-2xl py-3.5 pl-11 pr-28 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/30 transition-all">
+      <span id="countTag" class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-500 pointer-events-none">35 carreras</span>
+    </div>
+    <div id="facultyPills" class="flex items-center gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">
+      <button data-faculty="todas" class="faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-orange-600 text-white border border-orange-500 transition-all shrink-0">Todas las Facultades</button>
+      <button data-faculty="Derecho" class="faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 transition-all shrink-0">Derecho</button>
+      <button data-faculty="Psicologia" class="faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 transition-all shrink-0">Psicologia</button>
+      <button data-faculty="Economia" class="faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 transition-all shrink-0">Economia y Negocios</button>
+      <button data-faculty="Ingenieria" class="faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 transition-all shrink-0">Ingenieria</button>
+      <button data-faculty="Ciencias Sociales" class="faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 transition-all shrink-0">Ciencias Sociales</button>
+      <button data-faculty="Educacion" class="faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 transition-all shrink-0">Educacion</button>
+      <button data-faculty="Filosofia" class="faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 transition-all shrink-0">Filosofia y Humanidades</button>
+    </div>
+  </div>
+
+  <div id="careerGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-6"></div>
+</section>
+
+
+<!-- ===== MODAL GLOBAL ===== -->
+<div id="detailModal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4" role="dialog" aria-modal="true">
+  <div id="modalBackdrop" class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+  <div class="relative z-10 w-full max-w-xl glass-orange rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(227,82,5,0.3)] animate-reveal">
+    <div class="relative bg-gradient-to-br from-orange-500/20 via-orange-500/8 to-transparent p-6 pb-5 border-b border-white/[0.08]">
+      <div class="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="flex items-start justify-between gap-4 relative z-10">
+        <div class="flex flex-col gap-2 flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="mRank" class="inline-flex items-center justify-center w-7 h-7 rounded-full rank-1 font-mono font-bold text-sm">#1</span>
+            <span id="mFacBadge" class="px-2.5 py-0.5 rounded-full bg-white/[0.07] border border-white/15 text-[10px] font-mono text-zinc-300 uppercase tracking-wider">Facultad</span>
+          </div>
+          <h2 id="mTitle" class="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight pr-2">Nombre Carrera</h2>
+          <p id="mHook" class="text-sm font-semibold text-orange-400 italic leading-snug"></p>
+        </div>
+        <button id="btnCloseModal" class="shrink-0 w-9 h-9 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-all">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+    <div class="p-6 flex flex-col gap-5">
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2 text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+          <i data-lucide="book-open" class="w-3.5 h-3.5 text-orange-500"></i>
+          <span>De que trata esta carrera</span>
+        </div>
+        <p id="mDesc" class="text-sm text-zinc-200 leading-relaxed">Descripcion de la carrera.</p>
+      </div>
+      <div class="flex items-center gap-3 p-4 rounded-2xl bg-zinc-900/90 border border-white/[0.07]">
+        <div class="w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center shrink-0">
+          <i data-lucide="graduation-cap" class="w-5 h-5 text-orange-500"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold text-white">Universidad Alberto Hurtado</p>
+          <p id="mFacFull" class="text-[11px] text-zinc-500 font-mono truncate">Facultad</p>
+        </div>
+        <div id="mScoreWrap" class="hidden flex-col items-end">
+          <span id="mScore" class="text-lg font-mono font-black text-orange-400"></span>
+          <span class="text-[10px] text-zinc-600 font-mono">afinidad</span>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button id="btnCloseModal2" class="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-sm font-semibold text-zinc-200 transition-all active:scale-95">Cerrar</button>
+        <button id="btnNextModal" class="hidden flex-1 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm shadow-[0_0_18px_rgba(227,82,5,0.4)] transition-all active:scale-95">Ver siguiente</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- FOOTER -->
+<footer class="glass border-t border-white/[0.07] py-3 px-4 lg:px-8 mt-auto">
+  <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-zinc-600">
+    <div class="flex items-center gap-2"><strong class="text-zinc-400">Universidad Alberto Hurtado</strong><span>&bull;</span><span>FACE AI PLATFORM &bull; Feria Vocacional</span></div>
+    <span class="font-mono text-[11px]">Inferencia Neural local &bull; face-api.js &bull; Sin almacenamiento de datos</span>
+  </div>
+</footer>
+
+<script>
+'use strict';
+
+const CAREERS=[
+  {name:'Derecho',faculty:'Facultad de Derecho',desc:'Formacion juridica con compromiso con la justicia, los derechos humanos y la etica publica.',hook:'Tu voz puede cambiar el sistema desde adentro.',detail:'La carrera de Derecho en la UAH forma abogados comprometidos con la justicia social y los derechos humanos. Estudiaras derecho civil, penal, constitucional e internacional en un ambiente que valora la etica publica y el razonamiento critico. Sus egresados se desempegan en tribunales, organismos publicos, ONGs y bufetes de renombre.',traits:['angry','neutral'],ageRange:[16,25]},
+  {name:'Psicologia',faculty:'Facultad de Psicologia',desc:'Enfoque integral que articula investigacion cientifica con practica clinica, educacional y social comunitaria.',hook:'Comprende la mente humana y transforma vidas.',detail:'La Psicologia en la UAH integra ciencia, clinica y compromiso social. Aprenderas a comprender los procesos mentales, emocionales y relacionales del ser humano. Podras ejercer en clinicas, hospitales, empresas, colegios y comunidades con perspectiva de derechos humanos.',traits:['happy','sad'],ageRange:[15,25]},
+  {name:'Ingenieria Comercial',faculty:'Facultad de Economia y Negocios',desc:'Liderazgo empresarial, gestion estrategica, finanzas y economia con vision innovadora y sostenible.',hook:'Lidera empresas y mercados con vision de futuro.',detail:'La Ingenieria Comercial UAH te prepara para liderar organizaciones en un mundo globalizado. Dominaras finanzas, marketing estrategico, economia y gestion de negocios con un solido componente etico. Sus egresados ocupan posiciones directivas en las principales companias del pais.',traits:['happy','neutral'],ageRange:[15,25]},
+  {name:'Contador Publico Auditor',faculty:'Facultad de Economia y Negocios',desc:'Gestion tributaria, auditoria integral, finanzas corporativas y sistemas de control directivo.',hook:'El guardian de la transparencia financiera.',detail:'El Contador Publico Auditor de la UAH garantiza la salud financiera y transparencia de las organizaciones. Aprenderas contabilidad avanzada, auditoria, gestion tributaria y finanzas corporativas. Alta demanda laboral con posibilidades de especializacion internacional.',traits:['neutral','disgusted'],ageRange:[15,25]},
+  {name:'Gestion de Informacion',faculty:'Facultad de Economia y Negocios',desc:'Gestion moderna del conocimiento, ciencia de datos, preservacion digital y gestion documental.',hook:'El futuro pertenece a quien gestiona el conocimiento.',detail:'Carrera unica que forma expertos en gestion de informacion en la era digital. Aprenderas a organizar, preservar y hacer accesible el conocimiento en bibliotecas, archivos y plataformas digitales. Sus egresados trabajan en universidades, ministerios y empresas tecnologicas.',traits:['neutral','fearful'],ageRange:[15,25]},
+  {name:'Ingenieria en Control de Gestion',faculty:'Facultad de Economia y Negocios',desc:'Diseno de tableros de control directivo, optimizacion de procesos y analitica de negocios.',hook:'Convierte datos en decisiones que mueven empresas.',detail:'Forma profesionales expertos en el diseno de sistemas de informacion para la toma de decisiones gerenciales. Aprenderas a construir tableros de control, KPIs y modelos de optimizacion. Alta empleabilidad combinando tecnologia, negocios y estrategia.',traits:['neutral','happy'],ageRange:[15,25]},
+  {name:'Ingenieria Civil en Informatica',faculty:'Facultad de Ingenieria',desc:'Desarrollo de software avanzado, inteligencia artificial, arquitectura de sistemas y ciberseguridad.',hook:'Construye el software que transformara el mundo.',detail:'La Ingenieria Civil en Informatica UAH te forma para disenar sistemas de software que resuelven los grandes desafios actuales. Estudiaras inteligencia artificial, desarrollo web y movil, ciberseguridad y arquitectura de software. Una de las empleabilidades mas altas del mercado.',traits:['neutral','angry'],ageRange:[14,25]},
+  {name:'Ingenieria Civil Industrial',faculty:'Facultad de Ingenieria',desc:'Optimizacion de operaciones complejas, logistica, cadena de suministros y gestion de proyectos.',hook:'Optimiza sistemas y crea eficiencia donde otros ven caos.',detail:'Forma lideres para disenar y optimizar sistemas productivos, logisticos y de gestion. Aprenderas a gestionar proyectos de gran escala y aplicar modelos matematicos para mejorar la eficiencia. Sus egresados trabajan en mineria, retail, salud y consultoria.',traits:['neutral','disgusted'],ageRange:[14,25]},
+  {name:'Administracion Publica',faculty:'Facultad de Ciencias Sociales',desc:'Diseno y direccion de politicas publicas, modernizacion del Estado y probidad en la gestion publica.',hook:'Transforma el Estado para que sirva a todos por igual.',detail:'Forma expertos en el diseno, ejecucion y evaluacion de politicas publicas. Aprenderas gestion publica, derecho administrativo, presupuesto fiscal y gobernanza democratica. Sus egresados trabajan en ministerios, municipalidades y organismos internacionales.',traits:['angry','neutral'],ageRange:[15,25]},
+  {name:'Antropologia',faculty:'Facultad de Ciencias Sociales',desc:'Comprension de la diversidad cultural, procesos sociales contemporaneos y patrimonio.',hook:'Descifra los codigos ocultos de la cultura humana.',detail:'Te invita a comprender la extraordinaria diversidad de las sociedades humanas a traves del tiempo y el espacio. Estudiaras antropologia social, cultural y biologica con trabajo de campo en comunidades reales. Sus egresados trabajan en organizaciones de derechos humanos.',traits:['surprised','neutral'],ageRange:[15,25]},
+  {name:'Arqueologia',faculty:'Facultad de Ciencias Sociales',desc:'Estudio de las sociedades pasadas mediante su cultura material, excavacion y conservacion.',hook:'Cada objeto enterrado es una historia que espera ser contada.',detail:'Forma especialistas en el estudio cientifico del pasado humano a traves de sus restos materiales. Aprenderas tecnicas de excavacion, analisis de artefactos y conservacion del patrimonio arqueologico de Chile y America Latina.',traits:['surprised','neutral'],ageRange:[15,25]},
+  {name:'Ciencia Politica y Relaciones Internacionales',faculty:'Facultad de Ciencias Sociales',desc:'Analisis de poder, diplomacia, geopolitica global, gobernanza y procesos democraticos.',hook:'Comprende el tablero global y mueve las piezas.',detail:'Forma analistas del poder politico en sus dimensiones local e internacional. Estudiaras teoria politica, relaciones internacionales, geopolitica y gobernanza democratica. La UAH tiene vinculos con organismos internacionales que abren puertas a sus egresados.',traits:['angry','happy'],ageRange:[15,25]},
+  {name:'Geografia',faculty:'Facultad de Ciencias Sociales',desc:'Planificacion territorial, sustentabilidad ambiental, cambio climatico y tecnologias geoespaciales SIG.',hook:'Planifica el territorio para construir un futuro sustentable.',detail:'Forma profesionales capaces de comprender y gestionar el espacio geografico con herramientas de vanguardia como SIG. Aprenderas planificacion territorial y sustentabilidad ambiental. Demanda creciente ante la urgencia del cambio climatico.',traits:['fearful','neutral'],ageRange:[15,25]},
+  {name:'Periodismo',faculty:'Facultad de Ciencias Sociales',desc:'Investigacion periodistica de alto rigor, medios digitales, comunicacion estrategica y narrativa audiovisual.',hook:'La verdad es tu herramienta de cambio social.',detail:'Forma comunicadores con profundo compromiso etico y formacion tecnica para la era digital. Aprenderas reporteo de investigacion, produccion audiovisual, periodismo de datos y comunicacion estrategica. Sus egresados trabajan en medios nacionales e internacionales.',traits:['surprised','happy'],ageRange:[14,25]},
+  {name:'Sociologia',faculty:'Facultad de Ciencias Sociales',desc:'Investigacion social critica, analisis de datos cualitativos y cuantitativos y transformaciones sociales.',hook:'Analiza la sociedad para proponer el cambio que necesita.',detail:'Forma cientificos sociales con herramientas para comprender y transformar la realidad. Aprenderas teoria social, metodologias de investigacion y estadistica social. Sus egresados trabajan en centros de investigacion, organismos publicos y ONGs.',traits:['angry','sad'],ageRange:[15,25]},
+  {name:'Trabajo Social',faculty:'Facultad de Ciencias Sociales',desc:'Intervencion en comunidades, promocion de los derechos humanos y gestion de programas sociales.',hook:'Se el puente entre las personas y sus derechos.',detail:'Forma profesionales comprometidos con la justicia social y el bienestar de las personas y comunidades. Aprenderas a disenar intervenciones sociales, gestionar programas comunitarios y abogar por los derechos de los mas vulnerables.',traits:['sad','happy'],ageRange:[15,25]},
+  {name:'Educacion Parvularia',faculty:'Facultad de Educacion',desc:'Formacion de especialistas en desarrollo integral, juego y aprendizaje en la primera infancia.',hook:'Los primeros anos marcan toda una vida. Tu los moldeas.',detail:'Forma educadoras y educadores de primera infancia con vision integral del desarrollo infantil. Aprenderas neurociencia del aprendizaje, didacticas del juego y desarrollo socioemocional. Alta demanda laboral en jardines infantiles y organismos como JUNJI e Integra.',traits:['happy','surprised'],ageRange:[15,25]},
+  {name:'Pedagogia en Educacion Basica',faculty:'Facultad de Educacion',desc:'Didactica innovadora, inclusion escolar y liderazgo pedagogico en la educacion primaria.',hook:'Enciende la chispa del aprendizaje en cada nino.',detail:'Forma docentes comprometidos con la educacion de calidad e inclusiva para los primeros anos de escolaridad. Aprenderas didacticas innovadoras, gestion de aula y educacion inclusiva. Alta demanda laboral en colegios de todo Chile.',traits:['happy','neutral'],ageRange:[15,25]},
+  {name:'Pedagogia en Educacion Diferencial',faculty:'Facultad de Educacion',desc:'Mencion en Dificultades del Aprendizaje, diversificacion de la ensenanza e inclusion educativa.',hook:'Cada estudiante aprende diferente. Tu haces la diferencia.',detail:'Forma especialistas en la atencion educativa de ninos y jovenes con necesidades educativas especiales. Con mencion en Dificultades del Aprendizaje. Es una de las carreras con mayor demanda laboral insatisfecha en Chile.',traits:['happy','sad'],ageRange:[15,25]},
+  {name:'Pedagogia en Ingles',faculty:'Facultad de Educacion',desc:'Dominio avanzado del idioma ingles y metodologias contemporaneas para su ensenanza como segunda lengua.',hook:'Conecta a tus estudiantes con el mundo a traves del idioma.',detail:'Combina el dominio avanzado del ingles nivel C1 con las mas modernas metodologias de ensenanza de lenguas extranjeras. Alta demanda de profesores calificados en todo Chile con excelente remuneracion.',traits:['happy','neutral'],ageRange:[14,25]},
+  {name:'Pedagogia en Matematica',faculty:'Facultad de Educacion',desc:'Didactica matematica, resolucion de problemas y pensamiento logico para ensenanza media.',hook:'Haz que los numeros sean apasionantes para la proxima generacion.',detail:'Forma docentes con dominio solido de las matematicas y estrategias efectivas para su ensenanza. Chile tiene escasez critica de profesores de matematicas calificados, lo que convierte esta carrera en una de mayor empleabilidad y mejor remuneracion.',traits:['neutral','angry'],ageRange:[14,25]},
+  {name:'Pedagogia en Biologia y Ciencias Naturales',faculty:'Facultad de Educacion',desc:'Educacion cientifica basada en la indagacion, ecologia, biologia y experimentacion escolar.',hook:'Inspira la proxima generacion de cientificos.',detail:'Forma docentes capaces de despertar el asombro por la vida y el mundo natural. Aprenderas biologia celular, ecologia, zoologia, botanica y metodologias de ensenanza basadas en la indagacion cientifica.',traits:['fearful','neutral'],ageRange:[14,25]},
+  {name:'Licenciatura en Filosofia',faculty:'Facultad de Filosofia y Humanidades',desc:'Pensamiento reflexivo y argumentativo sobre dilemas eticos, metafisicos y contemporaneos.',hook:'Las grandes preguntas del mundo necesitan tu mente.',detail:'Te invita a desarrollar un pensamiento riguroso, critico y creativo sobre los problemas fundamentales de la existencia, el conocimiento y la etica. Sus egresados trabajan en docencia, investigacion, comunicaciones y politica.',traits:['neutral','sad'],ageRange:[15,25]},
+  {name:'Licenciatura en Historia',faculty:'Facultad de Filosofia y Humanidades',desc:'Investigacion historica rigurosa, analisis de fuentes y comprension del devenir de las sociedades.',hook:'Quien no conoce su historia esta condenado a repetirla.',detail:'Forma investigadores y analistas criticos del pasado humano para comprender y transformar el presente. Sus egresados trabajan en docencia universitaria, investigacion, archivos, museos y medios de comunicacion.',traits:['sad','neutral'],ageRange:[15,25]},
+  {name:'Licenciatura en Lengua y Literatura',faculty:'Facultad de Filosofia y Humanidades',desc:'Critica literaria, estudios linguisticos, edicion de textos y creacion literaria.',hook:'Las palabras son el poder mas antiguo del mundo.',detail:'Forma lectores criticos, creadores y comunicadores excepcionales. Estudiaras literatura hispanoamericana y universal, linguistica y critica literaria. Abre puertas en docencia, periodismo, industria editorial y gestion cultural.',traits:['neutral','surprised'],ageRange:[15,25]},
+  {name:'Licenciatura en Teoria e Historia del Arte',faculty:'Facultad de Filosofia y Humanidades',desc:'Curatoria, critica artistica, gestion cultural y analisis de expresiones visuales.',hook:'El arte habla donde las palabras no llegan.',detail:'Forma especialistas capaces de interpretar, gestionar y comunicar el arte. Aprenderas historia del arte occidental y latinoamericano, curatoria, critica de arte y gestion cultural. Sus egresados trabajan en galerias, museos y fundaciones culturales.',traits:['disgusted','surprised'],ageRange:[15,25]},
+  {name:'Pedagogia en Artes Visuales',faculty:'Facultad de Filosofia y Humanidades',desc:'Didactica de las artes, creatividad visual, historia estetica y expresion artistica escolar.',hook:'Ensena a ver el mundo con ojos de artista.',detail:'Forma docentes que integran la creatividad y la expresion artistica en la educacion. Aprenderas dibujo, pintura, escultura, fotografia, arte digital e historia del arte con metodologias de ensenanza artistica innovadoras.',traits:['surprised','happy'],ageRange:[14,25]},
+  {name:'Pedagogia en Filosofia',faculty:'Facultad de Filosofia y Humanidades',desc:'Desarrollo del pensamiento critico y etico en jovenes a traves del dialogo filosofico.',hook:'Ensena a pensar y cambia el mundo para siempre.',detail:'Forma docentes capaces de cultivar el pensamiento critico, el dialogo y la reflexion etica en el aula. En un mundo de desinformacion, la filosofia en las aulas es mas urgente que nunca.',traits:['neutral','sad'],ageRange:[15,25]},
+  {name:'Pedagogia en Historia y Ciencias Sociales',faculty:'Facultad de Filosofia y Humanidades',desc:'Formacion ciudadana, conciencia historica y pensamiento critico en educacion media.',hook:'Forma ciudadanos criticos que construyan una mejor democracia.',detail:'Forma docentes con solida formacion en historia, geografia, economia y ciencias sociales, comprometidos con la educacion ciudadana. Sus egresados trabajan en colegios de todo Chile y centros de investigacion educativa.',traits:['sad','angry'],ageRange:[15,25]},
+  {name:'Pedagogia en Lengua Castellana y Comunicacion',faculty:'Facultad de Filosofia y Humanidades',desc:'Fomento lector, habilidades linguisticas y analisis critico de discursos y medios.',hook:'Forma lectores y comunicadores que transforman el mundo.',detail:'Forma docentes expertos en el desarrollo del lenguaje, la comunicacion y la comprension lectora. En la era de las redes sociales, estas competencias son fundamentales para una ciudadania critica y consciente.',traits:['happy','neutral'],ageRange:[14,25]},
+  {name:'Pedagogia en Musica',faculty:'Facultad de Filosofia y Humanidades',desc:'Practica coral e instrumental, teoria musical y didactica musical para colegios.',hook:'La musica es el lenguaje universal que tu ensenas.',detail:'Forma docentes con dominio musical y herramientas pedagogicas para compartir el poder transformador de la musica. La educacion musical tiene un impacto comprobado en el desarrollo cognitivo y emocional.',traits:['happy','surprised'],ageRange:[14,25]},
+  {name:'Interpretacion Superior en Canto',faculty:'Facultad de Filosofia y Humanidades',desc:'Formacion tecnica y artistica de nivel solista para opera, conciertos y musica de camara.',hook:'Tu voz es un instrumento que puede emocionar al mundo.',detail:'Forma cantantes de nivel profesional para la musica clasica y la opera. Con clases individuales de canto, tecnica vocal, repertorio e idiomas. Sus egresados actuan en teatros nacionales e internacionales.',traits:['happy','surprised'],ageRange:[14,25]},
+  {name:'Interpretacion Superior en Direccion Coral',faculty:'Facultad de Filosofia y Humanidades',desc:'Liderazgo de agrupaciones vocales, direccion musical e interpretacion de repertorio coral universal.',hook:'Lidera voces y crea una sola emocion colectiva.',detail:'Forma directores de coros con dominio tecnico, musical y pedagogico de primer nivel. Aprenderas tecnica de direccion, analisis de partituras y repertorio coral universal de diferentes periodos.',traits:['happy','angry'],ageRange:[14,25]},
+  {name:'Interpretacion Superior en Musica Antigua',faculty:'Facultad de Filosofia y Humanidades',desc:'Especializacion en interpretacion historica con instrumentos de epoca del renacimiento y barroco.',hook:'Revive la musica que el tiempo casi olvido.',detail:'Carrera unica en Latinoamerica que forma interpretes especializados en musica del periodo medieval, renacimiento y barroco con instrumentos de epoca. Sus egresados se presentan en festivales internacionales.',traits:['happy','neutral'],ageRange:[14,25]},
+  {name:'Bachillerato en Filosofia',faculty:'Facultad de Filosofia y Humanidades',desc:'Ciclo inicial de formacion humanista solida como puente a carreras de la facultad.',hook:'El primer paso hacia el conocimiento mas profundo.',detail:'Ciclo formativo inicial que te sumerge en las grandes preguntas del pensamiento humano. Al completarlo, puedes continuar con la Licenciatura en Filosofia u otras carreras de la facultad de Humanidades.',traits:['neutral','sad'],ageRange:[15,25]},
+  {name:'Bachillerato en Humanidades',faculty:'Facultad de Filosofia y Humanidades',desc:'Formacion interdisciplinaria en artes, literatura, historia y ciencias del pensamiento.',hook:'Explora todas las humanidades antes de elegir tu camino.',detail:'Espacio de exploracion intelectual interdisciplinario que abarca artes, literatura, historia, filosofia y ciencias del pensamiento. Ideal si tienes multiples intereses humanistas y quieres explorar antes de especializarte.',traits:['neutral','surprised'],ageRange:[14,25]},
+];
+
+const EMOTION_ES={happy:'Feliz',surprised:'Sorprendido',neutral:'Neutral',sad:'Triste',angry:'Enojado',fearful:'Temeroso',disgusted:'Disgustado'};
+const SCAN_PHASES=['Analizando micro-expresiones faciales','Calculando afinidad vocacional','Cruzando con 35 carreras UAH','Sintetizando perfil optimo'];
+
+const App={
+  activeTab:'emotions',modelsLoaded:false,
+  camE:{active:false,stream:null,raf:null,ageHist:[],lastLoop:0},
+  camP:{active:false,stream:null,raf:null,ageHist:[],lastLoop:0,state:'locked',votes:{},startTime:0,revealTime:0,top5:[],modalIdx:0,lastBox:null},
+  catalog:{query:'',faculty:'todas'}
+};
+
+function reIcons(){if(window.lucide)lucide.createIcons();}
+
+function switchTab(tab){
+  App.activeTab=tab;
+  const views={emotions:'view-emotions',prediction:'view-prediction',catalog:'view-catalog'};
+  const tabs={emotions:'tab-emotions',prediction:'tab-prediction',catalog:'tab-catalog'};
+  Object.keys(views).forEach(t=>{
+    const v=document.getElementById(views[t]);const b=document.getElementById(tabs[t]);
+    if(t===tab){v.classList.remove('hidden');b.classList.remove('tab-inactive');b.classList.add('tab-active');b.setAttribute('aria-selected','true');}
+    else{v.classList.add('hidden');b.classList.add('tab-inactive');b.classList.remove('tab-active');b.setAttribute('aria-selected','false');}
+  });
+  if(tab==='catalog')renderGrid();reIcons();
+}
+
+async function loadModels(){
+  const badge=document.getElementById('aiBadge'),dot=document.getElementById('aiDot'),ping=document.getElementById('aiPing'),text=document.getElementById('aiText');
+  text.textContent='Cargando modelos IA';
+  try{
+    await Promise.all([faceapi.nets.tinyFaceDetector.load('/'),faceapi.nets.faceExpressionNet.load('/'),faceapi.nets.ageGenderNet.load('/')]);
+    App.modelsLoaded=true;text.textContent='IA Lista';
+    badge.className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30';
+    dot.className='relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
+    ping.className='animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+    text.className='text-[11px] font-mono font-medium text-emerald-400 tracking-wide whitespace-nowrap';
+  }catch(e){
+    text.textContent='Error IA';
+    badge.className='flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/30';
+    dot.className='relative inline-flex rounded-full h-2 w-2 bg-rose-500';
+    ping.className='hidden';
+    text.className='text-[11px] font-mono font-medium text-rose-400 tracking-wide whitespace-nowrap';
+  }
+}
+
+async function startCamera(w){
+  const cfg=w==='E'?App.camE:App.camP;
+  if(cfg.active)return;
+  const inactive=document.getElementById('inactive'+w),loading=document.getElementById('loading'+w),startBtn=document.getElementById('btnStartCam'+w);
+  startBtn.classList.add('hidden');loading.classList.remove('hidden');
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'},audio:false});
+    cfg.stream=stream;cfg.active=true;
+    const video=document.getElementById('video'+w);video.srcObject=stream;
+    const init=async()=>{
+      try{await video.play();}catch(e){}
+      video.classList.remove('hidden');inactive.classList.add('hidden');
+      document.getElementById('laser'+w).classList.remove('hidden');
+      document.getElementById('hud'+w).classList.remove('opacity-0');
+      document.getElementById('statusBadge'+w).classList.remove('opacity-0');
+      reIcons();if(w==='E')startLoopE();else startLoopP();
+    };
+    if(video.readyState>=1)init();else video.onloadedmetadata=init;
+  }catch(err){
+    loading.classList.add('hidden');startBtn.classList.remove('hidden');
+    alert('No se pudo acceder a la camara. Verifica los permisos del navegador.');
+  }
+}
+
+function drawBox(ctx,box){
+  const{x,y,width:w,height:h}=box;const c=Math.min(22,w*0.18);
+  ctx.save();ctx.strokeStyle='#E35205';ctx.lineWidth=2.5;ctx.shadowColor='#E35205';ctx.shadowBlur=10;
+  [[[x,y+c],[x,y],[x+c,y]],[[x+w-c,y],[x+w,y],[x+w,y+c]],[[x,y+h-c],[x,y+h],[x+c,y+h]],[[x+w-c,y+h],[x+w,y+h],[x+w,y+h-c]]].forEach(pts=>{ctx.beginPath();pts.forEach(([px,py],i)=>i===0?ctx.moveTo(px,py):ctx.lineTo(px,py));ctx.stroke();});
+  ctx.restore();
+}
+
+async function startLoopE(){
+  const video=document.getElementById('videoE'),canvas=document.getElementById('canvasE');
+  async function frame(){
+    if(!App.camE.active)return;
+    const now=performance.now(),delta=now-App.camE.lastLoop;App.camE.lastLoop=now;
+    if(delta>0){const el=document.getElementById('fpsE');if(el)el.textContent=Math.round(1000/delta);}
+    if(!video.paused&&!video.ended&&App.modelsLoaded){
+      const opts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.38});
+      const det=await faceapi.detectSingleFace(video,opts).withFaceExpressions().withAgeAndGender();
+      const dims=faceapi.matchDimensions(canvas,video,true);
+      const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(det){
+        const r=faceapi.resizeResults(det,dims);drawBox(ctx,r.detection.box);
+        updateBarsE(det.expressions);updateDemoE(det.age,det.gender,det.genderProbability);
+        const dom=getDominant(det.expressions),age=getAvgAge(App.camE.ageHist,det.age);
+        setStatus('E',true,'Rostro detectado - <strong class="text-white">'+age+' anos</strong> - <strong class="text-orange-400">'+EMOTION_ES[dom.name]+' ('+dom.pct+'%)</strong>');
+      }else setStatus('E',false,'Buscando rostro de estudiante');
+    }
+    App.camE.raf=requestAnimationFrame(frame);
+  }
+  App.camE.raf=requestAnimationFrame(frame);
+}
+
+function updateBarsE(expressions){
+  let dom='neutral',max=-1;
+  for(const[k,v]of Object.entries(expressions)){
+    const pct=Math.round(v*100);
+    const b=document.getElementById('bE-'+k),p=document.getElementById('pE-'+k);
+    if(b)b.style.width=pct+'%';if(p)p.textContent=pct+'%';if(v>max){max=v;dom=k;}
+  }
+  const txt=document.getElementById('emotionTextE'),dot=document.getElementById('emotionDotE'),badge=document.getElementById('emotionBadgeE');
+  if(txt)txt.textContent=EMOTION_ES[dom]+' ('+Math.round(max*100)+'%)';
+  if(dot)dot.className='w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping';
+  if(badge)badge.className='ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/15 border border-orange-500/30 text-[11px] font-mono text-orange-400';
+}
+
+function updateDemoE(age,gender,prob){
+  App.camE.ageHist.unshift(age);if(App.camE.ageHist.length>30)App.camE.ageHist.pop();
+  const avg=Math.round(App.camE.ageHist.reduce((a,b)=>a+b,0)/App.camE.ageHist.length);
+  const el=document.getElementById('ageValE');if(el)el.textContent=avg;
+  const gEl=document.getElementById('genderValE'),gcEl=document.getElementById('genderConfE');
+  if(gEl)gEl.textContent=gender==='male'?'Masculino':'Femenino';
+  if(gcEl)gcEl.textContent='Certeza '+Math.round(prob*100)+'%';
+}
+
+function resetEmotions(){
+  ['happy','surprised','neutral','sad','angry','fearful','disgusted'].forEach(k=>{
+    const b=document.getElementById('bE-'+k),p=document.getElementById('pE-'+k);
+    if(b)b.style.width='0%';if(p)p.textContent='0%';
+  });
+  const txt=document.getElementById('emotionTextE'),dot=document.getElementById('emotionDotE'),badge=document.getElementById('emotionBadgeE'),age=document.getElementById('ageValE'),gend=document.getElementById('genderValE'),conf=document.getElementById('genderConfE');
+  if(txt)txt.textContent='En espera';if(dot)dot.className='w-1.5 h-1.5 rounded-full bg-zinc-500';
+  if(badge)badge.className='ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-800/60 border border-white/10 text-[11px] font-mono text-zinc-400';
+  if(age)age.textContent='--';if(gend)gend.textContent='--';if(conf)conf.textContent='Certeza --%';
+  App.camE.ageHist=[];
+}
+
+async function startLoopP(){
+  const video=document.getElementById('videoP'),canvas=document.getElementById('canvasP');
+  async function frame(){
+    if(!App.camP.active)return;
+    const now=performance.now(),delta=now-App.camP.lastLoop;App.camP.lastLoop=now;
+    if(delta>0){const el=document.getElementById('fpsP');if(el)el.textContent=Math.round(1000/delta);}
+    if(!video.paused&&!video.ended&&App.modelsLoaded){
+      const opts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.38});
+      const det=await faceapi.detectSingleFace(video,opts).withFaceExpressions().withAgeAndGender();
+      const dims=faceapi.matchDimensions(canvas,video,true);
+      const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(det){
+        const r=faceapi.resizeResults(det,dims);drawBox(ctx,r.detection.box);
+        const avgAge=getAvgAge(App.camP.ageHist,det.age),dom=getDominant(det.expressions);
+        setStatus('P',true,'Escaneando - <strong class="text-white">'+avgAge+' anos</strong> - <strong class="text-orange-400">'+EMOTION_ES[dom.name]+' ('+dom.pct+'%)</strong>');
+        processPred(det.expressions,avgAge,r.detection.box,now);
+      }else{
+        setStatus('P',false,'Buscando rostro de estudiante');
+        if(App.camP.state==='scanning')resetPredLocked();
+      }
+    }
+    App.camP.raf=requestAnimationFrame(frame);
+  }
+  App.camP.raf=requestAnimationFrame(frame);
+}
+
+function processPred(expressions,age,box,now){
+  const cp=App.camP;
+  if(cp.lastBox){const dx=Math.abs(box.x-cp.lastBox.x),dy=Math.abs(box.y-cp.lastBox.y);if((dx>150||dy>150)&&cp.state!=='locked')resetPredLocked();}
+  cp.lastBox={x:box.x,y:box.y};
+  if(cp.state==='locked'){cp.state='scanning';cp.startTime=now;cp.votes={};setPredTag('Analizando','orange');showPred('scanning');}
+  if(cp.state==='scanning'){
+    const elapsed=now-cp.startTime,DUR=5000,pct=Math.min(100,(elapsed/DUR)*100);
+    for(const[k,v]of Object.entries(expressions))cp.votes[k]=(cp.votes[k]||0)+v;
+    const stepIdx=Math.min(SCAN_PHASES.length-1,Math.floor((elapsed/DUR)*SCAN_PHASES.length));
+    const secsLeft=Math.max(1,Math.ceil((DUR-elapsed)/1000));
+    const phaseEl=document.getElementById('scanPhase'),cdEl=document.getElementById('scanCd'),barEl=document.getElementById('scanBar'),pctEl=document.getElementById('scanPct');
+    if(phaseEl)phaseEl.textContent=SCAN_PHASES[stepIdx];if(cdEl)cdEl.textContent=secsLeft+'s';
+    if(barEl)barEl.style.width=pct+'%';if(pctEl)pctEl.textContent=Math.round(pct)+'%';
+    if(elapsed>=DUR)revealPrediction(age,now);
+  }
+  if(cp.state==='revealed'){
+    const elapsed=now-cp.revealTime,secs=Math.max(0,Math.ceil((12000-elapsed)/1000));
+    const el=document.getElementById('resetCd');if(el)el.textContent=secs+'s';
+    if(elapsed>=12000)resetPredLocked();
+  }
+}
+
+function revealPrediction(age,now){
+  const cp=App.camP;cp.state='revealed';cp.revealTime=now;
+  let domEmotion='neutral',highScore=-1;
+  for(const[k,v]of Object.entries(cp.votes))if(v>highScore){highScore=v;domEmotion=k;}
+  const sorted2=Object.entries(cp.votes).sort((a,b)=>b[1]-a[1]);
+  const secondEmotion=sorted2[1]?sorted2[1][0]:null;
+  const scored=CAREERS.map(c=>{
+    let s=62+Math.random()*16;
+    if(c.traits.includes(domEmotion))s+=9+Math.random()*4;
+    if(secondEmotion&&c.traits.includes(secondEmotion))s+=3+Math.random()*2;
+    if(c.ageRange&&age>=c.ageRange[0]&&age<=c.ageRange[1])s+=2+Math.random()*2;
+    return{...c,score:Math.min(99.9,s).toFixed(1)};
+  });
+  scored.sort((a,b)=>b.score-a.score);cp.top5=scored.slice(0,5);
+  setPredTag('Perfil Revelado','green');renderTop5(cp.top5);showPred('revealed');
+}
+
+function renderTop5(top5){
+  const list=document.getElementById('top5List');if(!list)return;
+  list.innerHTML=top5.map((c,i)=>{
+    const isFirst=i===0;
+    const bg=isFirst?'bg-gradient-to-r from-orange-500/20 to-orange-500/5 border-orange-500/45':'bg-zinc-900/60 border-white/[0.06]';
+    const nameClass=isFirst?'text-white font-black text-sm':'text-zinc-200 font-bold text-xs';
+    const scoreClass=isFirst?'text-orange-400 text-sm font-black':'text-emerald-400 text-xs font-bold';
+    const numClass=isFirst?'rank-1':'rank-n';
+    return '<button data-idx="'+i+'" class="top5-item w-full flex items-center justify-between p-3 rounded-xl border '+bg+' cursor-pointer group text-left"><div class="flex items-center gap-2.5 min-w-0"><div class="w-6 h-6 rounded-full flex items-center justify-center font-mono text-[10px] font-bold shrink-0 '+numClass+'">'+(i+1)+'</div><div class="flex flex-col min-w-0"><span class="'+nameClass+' tracking-tight leading-tight truncate">'+c.name+'</span><span class="text-[9px] font-mono text-zinc-500 uppercase tracking-wide truncate">'+c.faculty.replace('Facultad de ','')+'</span></div></div><div class="flex items-center gap-1.5 shrink-0 ml-2"><span class="'+scoreClass+' font-mono bg-black/30 px-2 py-0.5 rounded-md">'+c.score+'%</span><svg class="w-3.5 h-3.5 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></button>';
+  }).join('');
+  list.querySelectorAll('[data-idx]').forEach(btn=>{
+    btn.addEventListener('click',()=>openModal(App.camP.top5[parseInt(btn.getAttribute('data-idx'),10)],parseInt(btn.getAttribute('data-idx'),10),'pred'));
+  });
+}
+
+function resetPredLocked(){App.camP.state='locked';App.camP.votes={};App.camP.top5=[];setPredTag('En espera','gray');showPred('locked');}
+function showPred(state){['locked','scanning','revealed'].forEach(s=>{const id='pred'+s.charAt(0).toUpperCase()+s.slice(1);const el=document.getElementById(id);if(el)el.classList.toggle('hidden',s!==state);});}
+function setPredTag(text,color){
+  const el=document.getElementById('predTag');if(!el)return;
+  const cls={orange:'px-2.5 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/40 text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wide animate-pulse',green:'px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wide',gray:'px-2.5 py-0.5 rounded-full bg-zinc-800 border border-white/10 text-[10px] font-mono text-zinc-400 uppercase tracking-wide'};
+  el.className=cls[color]||cls.gray;el.textContent=text;
+}
+function resetPredFull(){resetPredLocked();App.camP.ageHist=[];App.camP.lastLoop=0;const fps=document.getElementById('fpsP');if(fps)fps.textContent='--';setStatus('P',false,'Buscando rostro de estudiante');}
+
+function getDominant(expressions){let name='neutral',max=-1;for(const[k,v]of Object.entries(expressions))if(v>max){max=v;name=k;}return{name,pct:Math.round(max*100)};}
+function getAvgAge(hist,newAge){hist.unshift(newAge);if(hist.length>30)hist.pop();return Math.round(hist.reduce((a,b)=>a+b,0)/hist.length);}
+function setStatus(w,detected,html){
+  const inner=document.getElementById('statusBadge'+w+'Inner');if(!inner)return;
+  if(detected){inner.className='flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-500/20 backdrop-blur-md border border-orange-500/50 text-[11px] font-mono text-white';inner.innerHTML='<i data-lucide="scan" class="w-3.5 h-3.5 text-orange-500 shrink-0"></i><span>'+html+'</span>';}
+  else{inner.className='flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-white/10 text-[11px] font-mono text-zinc-400';inner.innerHTML='<i data-lucide="scan" class="w-3.5 h-3.5 text-zinc-600 shrink-0"></i><span>'+html+'</span>';}
+  reIcons();
+}
+
+function normalize(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function renderGrid(){
+  const q=normalize(App.catalog.query),f=App.catalog.faculty;
+  const container=document.getElementById('careerGrid'),countEl=document.getElementById('countTag');
+  if(!container)return;
+  const filtered=CAREERS.filter(c=>{
+    const matchQ=q===''||normalize(c.name).includes(q)||normalize(c.faculty).includes(q)||normalize(c.desc).includes(q);
+    const matchF=f==='todas'||normalize(c.faculty).includes(normalize(f));
+    return matchQ&&matchF;
+  });
+  if(countEl)countEl.textContent=filtered.length+' de '+CAREERS.length+' carreras';
+  if(filtered.length===0){
+    container.innerHTML='<div class="col-span-full flex flex-col items-center justify-center py-16 gap-3 glass rounded-2xl border border-white/[0.07]"><i data-lucide="search-x" class="w-10 h-10 text-zinc-600"></i><p class="text-sm font-semibold text-zinc-400">Sin resultados</p><p class="text-xs text-zinc-600">Prueba con otro termino o selecciona Todas las Facultades</p></div>';
+    reIcons();return;
+  }
+  container.innerHTML=filtered.map((c,i)=>'<button data-cidx="'+i+'" class="career-card glass rounded-2xl p-5 border border-white/[0.07] flex flex-col justify-between gap-4 group text-left" aria-label="Ver detalles de '+c.name+'"><div class="flex flex-col gap-2.5"><div class="flex items-center justify-between gap-2"><span class="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 text-[10px] font-mono text-zinc-500 truncate max-w-[75%]">'+c.faculty.replace('Facultad de ','')+'</span><div class="w-2 h-2 rounded-full bg-orange-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"></div></div><h4 class="text-sm font-bold text-white tracking-tight group-hover:text-orange-400 transition-colors leading-snug">'+c.name+'</h4><p class="text-xs text-zinc-500 leading-relaxed line-clamp-3">'+c.desc+'</p></div><div class="pt-3 border-t border-white/[0.06] flex items-center justify-between"><span class="text-[11px] text-zinc-600 font-mono">Pregrado - UAH</span><div class="flex items-center gap-1 text-xs font-semibold text-orange-500 group-hover:gap-2 transition-all"><span>Ver carrera</span><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div></button>').join('');
+  container.querySelectorAll('[data-cidx]').forEach(btn=>{btn.addEventListener('click',()=>openModal(filtered[parseInt(btn.getAttribute('data-cidx'),10)],null,'catalog'));});
+  reIcons();
+}
+
+function pickRandom(){
+  const c=CAREERS[Math.floor(Math.random()*CAREERS.length)];
+  const card=document.getElementById('randomCard'),name=document.getElementById('randomName'),fac=document.getElementById('randomFac'),desc=document.getElementById('randomDesc');
+  if(!card)return;let spins=0;
+  const interval=setInterval(()=>{
+    const tmp=CAREERS[Math.floor(Math.random()*CAREERS.length)];
+    if(name)name.textContent=tmp.name;if(fac)fac.textContent=tmp.faculty;if(desc)desc.textContent=tmp.desc;
+    card.classList.remove('hidden');spins++;
+    if(spins>=8){clearInterval(interval);if(name)name.textContent=c.name;if(fac)fac.textContent=c.faculty;if(desc)desc.textContent=c.desc;}
+  },75);
+}
+
+let _modalCtx='catalog';
+function openModal(career,rankIdx,context){
+  _modalCtx=context;if(context==='pred')App.camP.modalIdx=rankIdx;
+  const modal=document.getElementById('detailModal');
+  const rankEl=document.getElementById('mRank'),facBadge=document.getElementById('mFacBadge'),title=document.getElementById('mTitle'),hook=document.getElementById('mHook'),desc=document.getElementById('mDesc'),facFull=document.getElementById('mFacFull'),scoreWrap=document.getElementById('mScoreWrap'),scoreEl=document.getElementById('mScore'),nextBtn=document.getElementById('btnNextModal');
+  if(rankIdx!==null&&rankIdx!==undefined){rankEl.textContent='#'+(rankIdx+1);rankEl.className='inline-flex items-center justify-center w-7 h-7 rounded-full font-mono font-bold text-sm '+(rankIdx===0?'rank-1':'rank-n');rankEl.style.display='';}
+  else rankEl.style.display='none';
+  if(facBadge)facBadge.textContent=career.faculty.replace('Facultad de ','');
+  if(title)title.textContent=career.name;if(hook)hook.textContent=career.hook||'';
+  if(desc)desc.textContent=career.detail||career.desc;if(facFull)facFull.textContent=career.faculty;
+  if(career.score&&scoreWrap&&scoreEl){scoreWrap.classList.remove('hidden');scoreWrap.classList.add('flex');scoreEl.textContent=career.score+'%';}
+  else if(scoreWrap){scoreWrap.classList.add('hidden');scoreWrap.classList.remove('flex');}
+  if(nextBtn){if(context==='pred'&&App.camP.top5.length>1)nextBtn.classList.remove('hidden');else nextBtn.classList.add('hidden');}
+  modal.classList.remove('hidden');modal.classList.add('flex');reIcons();
+}
+
+function closeModal(){const modal=document.getElementById('detailModal');modal.classList.add('hidden');modal.classList.remove('flex');}
+function toggleFullscreen(){if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});else if(document.exitFullscreen)document.exitFullscreen().catch(()=>{});}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  reIcons();loadModels();
+  document.getElementById('tab-emotions').addEventListener('click',()=>switchTab('emotions'));
+  document.getElementById('tab-prediction').addEventListener('click',()=>switchTab('prediction'));
+  document.getElementById('tab-catalog').addEventListener('click',()=>switchTab('catalog'));
+  const hash=window.location.hash;
+  if(hash==='#prediccion')switchTab('prediction');else if(hash==='#carreras')switchTab('catalog');else switchTab('emotions');
+  document.getElementById('btnStartCamE').addEventListener('click',()=>startCamera('E'));
+  document.getElementById('btnResetE').addEventListener('click',resetEmotions);
+  document.getElementById('btnStartCamP').addEventListener('click',()=>startCamera('P'));
+  document.getElementById('btnResetP').addEventListener('click',resetPredFull);
+  document.getElementById('searchInput').addEventListener('input',e=>{App.catalog.query=e.target.value;renderGrid();});
+  document.querySelectorAll('.faculty-pill').forEach(pill=>{
+    pill.addEventListener('click',()=>{
+      App.catalog.faculty=pill.getAttribute('data-faculty');
+      document.querySelectorAll('.faculty-pill').forEach(p=>{
+        const isActive=p===pill;p.className=isActive?'faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-orange-600 text-white border border-orange-500 transition-all shrink-0':'faculty-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:border-white/20 transition-all shrink-0';
+      });renderGrid();
+    });
+  });
+  document.getElementById('btnRandom').addEventListener('click',pickRandom);
+  document.getElementById('btnRandomAgain').addEventListener('click',pickRandom);
+  document.getElementById('btnCloseModal').addEventListener('click',closeModal);
+  document.getElementById('btnCloseModal2').addEventListener('click',closeModal);
+  document.getElementById('modalBackdrop').addEventListener('click',closeModal);
+  document.getElementById('btnNextModal').addEventListener('click',()=>{const next=(App.camP.modalIdx+1)%App.camP.top5.length;openModal(App.camP.top5[next],next,'pred');});
+  document.getElementById('btnFullscreen').addEventListener('click',toggleFullscreen);
+  window.addEventListener('keydown',e=>{
+    if(e.key==='Escape')closeModal();if(e.key==='1')switchTab('emotions');if(e.key==='2')switchTab('prediction');if(e.key==='3')switchTab('catalog');
+    if(e.key==='r'||e.key==='R'){resetEmotions();resetPredFull();}if(e.key==='f'||e.key==='F')toggleFullscreen();
+  });
+  renderGrid();
+});
+</script>
+</body>
+</html>

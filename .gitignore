@@ -1,0 +1,28 @@
+# Secretos — NUNCA commitear al repositorio
+.env
+.env.*
+!.env.example
+
+# Certificados TLS
+nginx/certs/
+
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 150">
+  <style>
+    .uah { font-family: 'Times New Roman', serif; font-size: 110px; font-weight: bold; letter-spacing: -2px; }
+    .slash { font-family: Arial, sans-serif; font-size: 110px; font-weight: 300; }
+    .text { font-family: Arial, sans-serif; font-size: 42px; font-weight: normal; }
+  </style>
+  <!-- Render uah in white for dark background -->
+  <text x="10" y="110" class="uah" fill="#FFFFFF">uah</text>
+  <text x="210" y="110" class="slash" fill="#FFFFFF">/</text>
+  <text x="260" y="65" class="text" fill="#FFFFFF">Universidad</text>
+  <text x="260" y="120" class="text" fill="#FFFFFF">Alberto Hurtado</text>
+</svg>

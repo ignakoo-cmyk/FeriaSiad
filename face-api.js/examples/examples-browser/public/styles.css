@@ -1,0 +1,201 @@
+.page-container {
+  left: 0;
+  right: 0;
+  margin: auto;
+  margin-top: 20px;
+  padding-left: 280px;
+  display: inline-flex !important;
+}
+
+@media only screen and (max-width : 992px) {
+  .page-container {
+    padding-left: 0;
+    display: flex !important;
+  }
+}
+
+#navbar {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+}
+
+.center-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.side-by-side {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.side-by-side >* {
+  margin: 0 5px;
+}
+
+.bold {
+  font-weight: bold;
+}
+
+.margin-sm {
+  margin: 5px;
+}
+
+.margin {
+  margin: 20px;
+}
+
+.button-sm {
+  padding: 0 10px !important;
+}
+
+.pad-sides-sm {
+  padding: 0 8px !important;
+}
+
+#github-link {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 1px solid;
+  margin-bottom: 10px;
+}
+
+#overlay, .overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#facesContainer canvas {
+  margin: 10px;
+}
+
+input[type="file"]::-webkit-file-upload-button {
+    background: #003366; /* UAH Blue */
+    border: 1px solid gray;
+    cursor: pointer;
+    color: #fff;
+    border-radius: .2em;
+}
+
+/* === UNIVERSIDAD ALBERTO HURTADO THEME OVERRIDES === */
+
+/* Make things larger globally */
+html, body {
+  font-size: 18px !important;
+  background-color: #f7f9fa;
+}
+
+/* Bigger buttons and inputs */
+.btn, .btn:hover, .btn-large, .btn-large:hover, .waves-effect.waves-light {
+  background-color: #003366 !important; /* UAH Blue */
+  height: 48px;
+  line-height: 48px;
+  font-size: 18px;
+  border-radius: 4px;
+}
+
+label {
+  font-size: 16px !important;
+  color: #333 !important;
+}
+
+input[type=text], select {
+  font-size: 18px !important;
+  height: 3rem !important;
+}
+
+h3 {
+  color: #E84E1B !important; /* UAH Orange */
+  font-weight: bold;
+  margin-top: 40px;
+  font-size: 3rem;
+  text-align: center;
+}
+
+h5 {
+  font-size: 1.5rem !important;
+}
+
+/* Sidebar styling */
+#slide-out, .side-nav {
+  background-color: #232323 !important; /* Secondary UAH dark gray color for nav */
+  width: 330px !important;
+}
+
+.side-nav a {
+  color: white !important;
+  font-size: 18px !important;
+  height: 60px !important;
+  line-height: 60px !important;
+}
+
+/* Make page container take full width */
+.page-container {
+  left: 0;
+  right: 0;
+  margin: auto;
+  margin-top: 20px;
+  padding-left: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#menu-toggle-btn {
+  background-color: #E84E1B !important; /* UAH orange for menu button */
+}
+
+@media only screen and (max-width : 992px) {
+  .page-container {
+    padding-left: 0;
+  }
+}
+
+#github-link {
+  background-color: transparent !important;
+  color: white !important;
+  pointer-events: none;
+  text-decoration: none;
+  min-height: 80px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+}
+
+/* Make camera / images MUCH larger and centered */
+.margin {
+  position: relative;
+  margin: 20px auto;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 1400px;
+}
+
+#inputVideo, #inputImg {
+  width: 100%;
+  height: auto;
+  /* Efecto Espejo */
+  transform: scaleX(-1);
+  border: 4px solid #003366; /* UAH Frame */
+  border-radius: 8px;
+  box-shadow: 0px 6px 18px rgba(0,0,0,0.2);
+  display: block;
+}
+
+#overlay, .overlay {
+  position: absolute;
+  top: 0;
+  /* left is omitted so it can center correctly if container behaves differently, but let's align it exactly over the video */
+  /* Efecto espejo para que el dibujo calce con la cámara invertida */
+  transform: scaleX(-1);
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script src="face-api.js"></script>
+  <script src="js/commons.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
+  <style>
+    #status-banner {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(0,51,102,0.92);
+      color: white;
+      padding: 16px 38px;
+      border-radius: 12px;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.35);
+      text-align: center;
+      min-width: 340px;
+      transition: opacity 0.5s, background 0.5s;
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+    #status-banner.resultado {
+      background: rgba(232, 78, 27, 0.96);
+      font-size: 26px;
+    }
+    .spinner-dots {
+      display: inline-block;
+      margin-left: 6px;
+    }
+    .spinner-dots span {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin: 0 3px;
+      background: white;
+      border-radius: 50%;
+      animation: dotPulse 1.2s infinite;
+    }
+    .spinner-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .spinner-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotPulse {
+      0%, 80%, 100% { opacity: 0.25; transform: scale(0.7); }
+      40% { opacity: 1; transform: scale(1.1); }
+    }
+    .countdown-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 5px;
+      background: #E84E1B;
+      border-radius: 0 0 12px 12px;
+      transition: width 0.3s linear;
+    }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="center-content page-container">
+    <div style="position: relative" class="margin">
+      <video onloadedmetadata="onPlay(this)" id="inputVideo" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+    </div>
+  </div>
+
+  <div id="status-banner" style="display:none;"></div>
+
+  <script>
+    // ============================================
+    // CARRERAS UNIVERSITARIAS CHILENAS (Ampliado)
+    // ============================================
+    const ALL_CAREERS = [
+      // Salud
+      'Medicina', 'Odontología', 'Enfermería', 'Kinesiología', 'Fonoaudiología',
+      'Nutrición y Dietética', 'Tecnología Médica', 'Obstetricia',
+      'Obstetricia y Puericultura',
+      // Ingeniería
+      'Ingeniería Civil Informática', 'Ingeniería Civil Industrial',
+      'Ingeniería Civil en Minería', 'Ingeniería Civil en Minas', 'Ingeniería Comercial',
+      'Ingeniería Civil Eléctrica', 'Ingeniería Civil Mecánica',
+      'Ingeniería Civil Química', 'Ingeniería en Construcción',
+      'Ingeniería Agrícola',
+      // Ciencias Sociales y Humanidades
+      'Derecho', 'Psicología', 'Sociología', 'Trabajo Social',
+      'Periodismo', 'Ciencias Políticas', 'Filosofía', 'Historia',
+      'Arqueología', 'Geografía', 'Antropología',
+      'Licenciatura en Filosofía',
+      // Negocios Internacional
+      'International Business',
+      // Educación
+      'Pedagogía en Matemáticas', 'Pedagogía en Lenguaje',
+      'Pedagogía en Historia', 'Educación Parvularia',
+      'Pedagogía en Educación Física', 'Pedagogía en Inglés',
+      'Pedagogía en Educación Básica', 'Pedagogía en Música',
+      'Pedagogía en Artes Visuales',
+      // Ciencias
+      'Bioquímica', 'Geología', 'Física', 'Matemáticas', 'Biología',
+      'Química y Farmacia', 'Astronomía', 'Astrofísica', 'Geofísica',
+      // Arte, Diseño y Arquitectura
+      'Arquitectura', 'Diseño Gráfico', 'Artes Visuales', 'Música',
+      'Teatro', 'Diseño Industrial', 'Cine y Televisión',
+      // Negocios y Economía
+      'Administración de Empresas', 'Economía', 'Contador Auditor',
+      'Ingeniería en Información y Control de Gestión',
+      // Agro y Medio Ambiente
+      'Agronomía', 'Medicina Veterinaria', 'Ingeniería Forestal',
+      'Ingeniería en Recursos Naturales Renovables',
+    ];
+
+    // ★ Carreras PRIORITARIAS — aparecen repetidas en TODOS los pools
+    const PRIORITY = [
+      'Medicina', 'Ingeniería Comercial', 'Ingeniería Civil Industrial',
+      'Ingeniería Civil Informática', 'Psicología', 'Derecho'
+    ];
+
+    // Mapeo por expresión: cada emoción favorece ciertas áreas
+    // Las 6 carreras prioritarias se repiten MUCHO en cada pool
+    const CAREER_POOLS = {
+      'happy': [
+        'Medicina', 'Medicina', 'Psicología', 'Psicología', 'Psicología',
+        'Ingeniería Comercial', 'Ingeniería Civil Informática', 'Derecho',
+        'Ingeniería Civil Industrial', 'Periodismo',
+        'Odontología', 'Educación Parvularia', 'Pedagogía en Educación Física',
+        'Diseño Gráfico', 'Teatro', 'Pedagogía en Música', 'Trabajo Social',
+        'Fonoaudiología', 'Pedagogía en Inglés', 'Pedagogía en Artes Visuales',
+        'Cine y Televisión', 'Kinesiología',
+        'Pedagogía en Educación Básica', 'Obstetricia y Puericultura',
+        'International Business'
+      ],
+      'neutral': [
+        'Ingeniería Civil Informática', 'Ingeniería Civil Informática', 'Ingeniería Civil Informática',
+        'Ingeniería Civil Industrial', 'Ingeniería Civil Industrial', 'Ingeniería Civil Industrial',
+        'Ingeniería Comercial', 'Ingeniería Comercial', 'Ingeniería Comercial',
+        'Medicina', 'Medicina', 'Derecho', 'Derecho', 'Psicología', 'Psicología',
+        'Economía', 'Contador Auditor', 'Administración de Empresas', 'Matemáticas',
+        'Ingeniería en Información y Control de Gestión', 'Física',
+        'Ingeniería Civil Eléctrica', 'Ingeniería Civil Mecánica',
+        'Ingeniería Civil Química', 'Astrofísica', 'Geofísica',
+        'International Business', 'Ingeniería Agrícola'
+      ],
+      'sad': [
+        'Medicina', 'Medicina', 'Medicina', 'Medicina',
+        'Psicología', 'Psicología', 'Psicología',
+        'Derecho', 'Ingeniería Civil Industrial', 'Ingeniería Comercial',
+        'Ingeniería Civil Informática',
+        'Enfermería', 'Kinesiología', 'Nutrición y Dietética',
+        'Obstetricia', 'Obstetricia y Puericultura', 'Tecnología Médica',
+        'Química y Farmacia', 'Trabajo Social', 'Licenciatura en Filosofía',
+        'Sociología', 'Antropología'
+      ],
+      'surprised': [
+        'Periodismo', 'Periodismo', 'Periodismo',
+        'Medicina', 'Medicina', 'Ingeniería Comercial', 'Ingeniería Comercial',
+        'Derecho', 'Derecho', 'Psicología', 'Ingeniería Civil Informática',
+        'Ingeniería Civil Industrial',
+        'Arquitectura', 'Diseño Industrial', 'Ciencias Políticas',
+        'Cine y Televisión', 'Astronomía', 'Astrofísica',
+        'Artes Visuales', 'Biología', 'Historia', 'Geología',
+        'Arqueología', 'Geografía', 'Geofísica', 'International Business'
+      ],
+      'angry': [
+        'Derecho', 'Derecho', 'Derecho', 'Derecho',
+        'Ingeniería Civil Informática', 'Ingeniería Civil Informática',
+        'Ingeniería Civil Industrial', 'Ingeniería Civil Industrial',
+        'Medicina', 'Medicina', 'Ingeniería Comercial', 'Psicología',
+        'Periodismo',
+        'Pedagogía en Matemáticas', 'Pedagogía en Lenguaje',
+        'Ciencias Políticas', 'Ingeniería Civil en Minas',
+        'Ingeniería Civil en Minería', 'Pedagogía en Historia',
+        'Sociología', 'Ingeniería en Construcción', 'Historia',
+        'Ingeniería Civil Mecánica', 'Antropología'
+      ],
+      'fearful': [
+        'Medicina', 'Medicina', 'Psicología', 'Psicología',
+        'Ingeniería Civil Industrial', 'Ingeniería Civil Informática',
+        'Derecho', 'Ingeniería Comercial',
+        'Ingeniería Civil en Minería', 'Ingeniería Civil en Minas',
+        'Geología', 'Geografía', 'Geofísica', 'Agronomía',
+        'Ingeniería Forestal', 'Ingeniería en Recursos Naturales Renovables',
+        'Bioquímica', 'Medicina Veterinaria', 'Biología', 'Arqueología',
+        'Ingeniería Agrícola'
+      ],
+      'disgusted': [
+        'Medicina', 'Medicina', 'Ingeniería Comercial', 'Ingeniería Comercial',
+        'Derecho', 'Derecho', 'Psicología', 'Ingeniería Civil Industrial',
+        'Ingeniería Civil Informática',
+        'Medicina Veterinaria', 'Ingeniería en Recursos Naturales Renovables',
+        'Bioquímica', 'Química y Farmacia', 'Tecnología Médica', 'Geología',
+        'Ingeniería Agrícola', 'Antropología'
+      ]
+    };
+
+    // ========== STATE MACHINE ==========
+    const STATE_THINKING = 'thinking';
+    const STATE_RESULT   = 'result';
+    const STATE_IDLE     = 'idle';
+
+    let currentState     = STATE_IDLE;
+    let thinkingStart    = 0;
+    const THINKING_MS    = 5000;  // 5 seconds to "calculate"
+    const RESULT_MS      = 10000; // 10 seconds showing result before restart
+    let chosenCareer     = '';
+    let resultStart      = 0;
+    let lastFaceBox      = null;  // to detect if person changed
+    let expressionVotes  = {};    // accumulate votes during thinking
+
+    function resetState() {
+      currentState = STATE_IDLE;
+      thinkingStart = 0;
+      chosenCareer = '';
+      resultStart = 0;
+      lastFaceBox = null;
+      expressionVotes = {};
+      const banner = document.getElementById('status-banner');
+      banner.style.display = 'none';
+      banner.classList.remove('resultado');
+    }
+
+    function isFaceDetectionModelLoaded() {
+      return !!faceapi.nets.ssdMobilenetv1.params
+    }
+
+    // Check if a face has changed significantly (different person)
+    function hasFaceChanged(newBox) {
+      if (!lastFaceBox) return false;
+      const dx = Math.abs(newBox.x - lastFaceBox.x);
+      const dy = Math.abs(newBox.y - lastFaceBox.y);
+      const dw = Math.abs(newBox.width - lastFaceBox.width);
+      // If box jumped a LOT, probably a different person
+      if (dx > 180 || dy > 180 || dw > 140) return true;
+      return false;
+    }
+
+    function pickCareerFromVotes() {
+      // Find the expression with most accumulated votes
+      let bestExpr = 'neutral';
+      let bestScore = -1;
+      for (const [expr, score] of Object.entries(expressionVotes)) {
+        if (score > bestScore) {
+          bestScore = score;
+          bestExpr = expr;
+        }
+      }
+      // Pick a random career from that pool
+      const pool = CAREER_POOLS[bestExpr] || CAREER_POOLS['neutral'];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function showThinkingBanner(elapsed) {
+      const banner = document.getElementById('status-banner');
+      const pct = Math.min(100, (elapsed / THINKING_MS) * 100);
+      const msgs = [
+        'Analizando rasgos faciales',
+        'Calculando afinidad vocacional',
+        'Procesando datos biométricos',
+        'Determinando perfil académico',
+        'Evaluando compatibilidad de carreras'
+      ];
+      const msgIdx = Math.min(msgs.length - 1, Math.floor((elapsed / THINKING_MS) * msgs.length));
+      banner.innerHTML = `
+        🔍 ${msgs[msgIdx]}
+        <span class="spinner-dots"><span></span><span></span><span></span></span>
+        <div class="countdown-bar" style="width: ${pct}%"></div>
+      `;
+      banner.classList.remove('resultado');
+      banner.style.display = 'block';
+    }
+
+    function showResultBanner(career, elapsed) {
+      const banner = document.getElementById('status-banner');
+      const remaining = Math.max(0, Math.ceil((RESULT_MS - elapsed) / 1000));
+      banner.innerHTML = `🎓 Tu carrera ideal: <strong>${career}</strong><br><span style="font-size:14px; opacity:0.8;">Nuevo análisis en ${remaining}s</span>`;
+      banner.classList.add('resultado');
+      banner.style.display = 'block';
+    }
+
+    async function onPlay() {
+      const videoEl = $('#inputVideo').get(0)
+      if (videoEl.paused || videoEl.ended || !isFaceDetectionModelLoaded()) {
+        return setTimeout(() => onPlay(), 100)
+      }
+
+      const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.45 })
+      const result = await faceapi.detectSingleFace(videoEl, options).withFaceExpressions()
+
+      const canvas = $('#overlay').get(0)
+      const dims = faceapi.matchDimensions(canvas, videoEl, true)
+
+      if (!result) {
+        // No face detected: reset if we were doing something
+        if (currentState !== STATE_IDLE) {
+          resetState();
+        }
+        setTimeout(() => onPlay(), 100)
+        return;
+      }
+
+      const resizedResult = faceapi.resizeResults(result, dims)
+      // Always draw detection box
+      faceapi.draw.drawDetections(canvas, resizedResult)
+
+      const box = resizedResult.detection.box;
+      const now = Date.now();
+
+      // Check if face changed (different person)
+      if (lastFaceBox && hasFaceChanged(box) && currentState !== STATE_IDLE) {
+        resetState();
+      }
+      lastFaceBox = { x: box.x, y: box.y, width: box.width, height: box.height };
+
+      // ========== STATE: IDLE ==========
+      if (currentState === STATE_IDLE) {
+        currentState = STATE_THINKING;
+        thinkingStart = now;
+        expressionVotes = {};
+      }
+
+      // ========== STATE: THINKING (5 seconds) ==========
+      if (currentState === STATE_THINKING) {
+        const elapsed = now - thinkingStart;
+
+        // Accumulate expression votes
+        const exprs = result.expressions;
+        for (const [expr, prob] of Object.entries(exprs)) {
+          expressionVotes[expr] = (expressionVotes[expr] || 0) + prob;
+        }
+
+        // Draw "analyzing" overlay text on the face
+        const thinkingLabel = '🔍 Analizando...'
+        new faceapi.draw.DrawTextField(
+          thinkingLabel,
+          { x: box.x, y: box.y - 40 },
+          { backgroundColor: 'rgba(0,51,102,0.9)', fontColor: 'white', fontSize: 20, padding: 8 }
+        ).draw(canvas)
+
+        showThinkingBanner(elapsed);
+
+        if (elapsed >= THINKING_MS) {
+          // Done thinking! Pick a career
+          chosenCareer = pickCareerFromVotes();
+          currentState = STATE_RESULT;
+          resultStart = now;
+        }
+      }
+
+      // ========== STATE: RESULT (show for 10 seconds, then restart) ==========
+      if (currentState === STATE_RESULT) {
+        const elapsed = now - resultStart;
+
+        // Draw the career recommendation above the face
+        new faceapi.draw.DrawTextField(
+          [`🎓 ${chosenCareer}`],
+          { x: box.x, y: box.y - 50 },
+          { backgroundColor: 'rgba(232,78,27,0.95)', fontColor: 'white', fontSize: 26, padding: 12 }
+        ).draw(canvas)
+
+        showResultBanner(chosenCareer, elapsed);
+
+        if (elapsed >= RESULT_MS) {
+          resetState();
+        }
+      }
+
+      setTimeout(() => onPlay(), 80)
+    }
+
+    async function run() {
+      await faceapi.nets.ssdMobilenetv1.load('/')
+      await faceapi.loadFaceExpressionModel('/')
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: {} })
+      const videoEl = $('#inputVideo').get(0)
+      videoEl.srcObject = stream
+    }
+
+    $(document).ready(function() {
+      renderNavBar('#navbar', 'webcam_career_prediction')
+      run()
+    })
+  </script>
+</body>
+</html>

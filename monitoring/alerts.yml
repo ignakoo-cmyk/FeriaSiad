@@ -1,0 +1,82 @@
+groups:
+  - name: uah_faceai
+    interval: 30s
+    rules:
+
+      # ── Latencia P95 > 500ms ────────────────────────────────────────
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_ms_bucket[5m])) by (le, route)
+          ) > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency > 500ms en {{ $labels.route }}"
+          description: >
+            El percentil 95 de latencia en la ruta {{ $labels.route }}
+            supera los 500ms. Valor actual: {{ $value | humanizeDuration }}.
+
+      # ── Tasa de errores 5xx > 1% ────────────────────────────────────
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_request_duration_ms_count{status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_request_duration_ms_count[5m]))
+          ) > 0.01
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Tasa de errores 5xx > 1%"
+          description: >
+            {{ $value | humanizePercentage }} de las requests están fallando
+            con error 5xx en los últimos 5 minutos.
+
+      # ── Circuit Breaker OPEN ─────────────────────────────────────────
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_state{name="external_image"} == 2
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit Breaker OPEN — proxy de imágenes externas caído"
+          description: >
+            El circuit breaker para fetch_external_image está ABIERTO.
+            El servicio externo no responde correctamente.
+
+      # ── Event Loop lag P99 > 100ms ───────────────────────────────────
+      - alert: NodeEventLoopLag
+        expr: nodejs_eventloop_lag_p99_seconds * 1000 > 100
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node.js event loop lag P99 > 100ms"
+          description: >
+            El lag del event loop supera los 100ms (valor: {{ $value }}ms).
+            Posible bloqueo síncrono o CPU saturada.
+
+      # ── Servicio caído ───────────────────────────────────────────────
+      - alert: ServiceDown
+        expr: up{job="uah-faceai"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "UAH FaceAI service is DOWN"
+          description: "Prometheus no puede hacer scraping de uah-faceai."
+
+      # ── Rate limiting disparado con frecuencia ───────────────────────
+      - alert: HighRateLimitHits
+        expr: rate(rate_limit_exceeded_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiting siendo disparado frecuentemente"
+          description: >
+            Más de 5 requests/s están siendo rechazadas por rate limiting.
+            Posible ataque o cliente mal configurado.

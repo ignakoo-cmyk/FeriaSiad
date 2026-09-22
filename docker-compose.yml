@@ -1,0 +1,107 @@
+services:
+
+  # ── Nginx: reverse proxy, TLS, rate limiting capa-4, caché ──────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: uah-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      uah-faceai:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 32M
+
+  # ── Aplicación principal ─────────────────────────────────────────────
+  uah-faceai:
+    build:
+      context: ./face-api.js
+      dockerfile: examples/examples-browser/Dockerfile
+    container_name: uah-faceai
+    # Expuesto al host y a la red interna
+    ports:
+      - "3001:3001"
+    expose:
+      - "3001"
+    env_file:
+      - .env.production        # Secretos fuera del código (ver .env.example)
+    restart: unless-stopped
+    # Filesystem de solo lectura (seguridad adicional)
+    read_only: true
+    tmpfs:
+      - /tmp                   # Node necesita /tmp para algunas operaciones
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    volumes:
+      - ./face-api.js/examples/examples-browser/server.js:/app/server.js:ro
+      - ./face-api.js/examples/examples-browser/views:/app/views:ro
+      - ./face-api.js/examples/examples-browser/public:/app/public:ro
+
+  # ── Prometheus: scraping de métricas ─────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: uah-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # ── Grafana: dashboards de observabilidad ────────────────────────────
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: uah-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-changeme_in_env}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3002
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  prometheus_data:
+  grafana_data:
